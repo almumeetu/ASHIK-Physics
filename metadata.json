@@ -1,0 +1,6 @@
+{
+  "name": "Ashik Physics LMS",
+  "description": "A premium high-fidelity mobile-optimized Learning Management System for HSC and University Admission physics students in Bangladesh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

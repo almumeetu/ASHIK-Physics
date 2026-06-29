@@ -14,7 +14,10 @@ import {
   Clock, 
   TrendingUp, 
   Sparkles, 
-  AlertCircle 
+  AlertCircle,
+  Wallet,
+  Send,
+  Receipt
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { 
@@ -55,9 +58,29 @@ interface StudentDashboardProps {
   submissions: QuizSubmission[];
   onResumeCourse: (courseId: string) => void;
   onNavigateTab: (tab: string) => void;
+  onSubmitPayment: (courseId: string, amount: number, method: 'bKash' | 'Nagad' | 'Rocket' | 'Bank', txId: string) => void;
 }
 
-export default function StudentDashboard({ student, courses, submissions, onResumeCourse, onNavigateTab }: StudentDashboardProps) {
+export default function StudentDashboard({ student, courses, submissions, onResumeCourse, onNavigateTab, onSubmitPayment }: StudentDashboardProps) {
+  // Local states for bKash/Nagad receipt submitter inside Student Dashboard
+  const [payCourseId, setPayCourseId] = React.useState(courses[0]?.id || '');
+  const [payAmount, setPayAmount] = React.useState<number>(1500);
+  const [payMethod, setPayMethod] = React.useState<'bKash' | 'Nagad' | 'Rocket' | 'Bank'>('bKash');
+  const [payTxId, setPayTxId] = React.useState('');
+  const [showPayForm, setShowPayForm] = React.useState(false);
+  const [paySuccess, setPaySuccess] = React.useState(false);
+
+  const handlePostPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payTxId.trim() || payAmount <= 0) return;
+    
+    onSubmitPayment(payCourseId, payAmount, payMethod, payTxId);
+    
+    setPayTxId('');
+    setPaySuccess(true);
+    setTimeout(() => setPaySuccess(false), 4000);
+  };
+
   // Get courses enrolled by student
   const enrolledCoursesList = courses.filter((c) => student.enrolledCourses.includes(c.id));
 
@@ -250,6 +273,178 @@ export default function StudentDashboard({ student, courses, submissions, onResu
             })}
           </div>
         )}
+      </div>
+
+      {/* Tuition Fees & Financial Ledger Section (টাকা-পয়সার হিসাব-নিকাশ) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider font-mono flex items-center gap-2">
+            <Wallet className="w-4.5 h-4.5 text-cyan-400" /> Accounts & Tuition Fee Ledger (আমার হিসাব-নিকাশ)
+          </h3>
+          <span className="text-xs font-mono text-slate-500 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+            Billing & Invoices
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Billing Overview Cards */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 md:p-6 shadow-xl space-y-4">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-850">
+                  <p className="text-[9px] uppercase font-bold text-slate-500 font-mono">Total Fees</p>
+                  <p className="text-lg md:text-xl font-extrabold text-slate-100 mt-1 font-mono">৳ {student.totalFees || 0}</p>
+                  <p className="text-[9px] text-slate-500 mt-1">Calculated tuition</p>
+                </div>
+                <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-850">
+                  <p className="text-[9px] uppercase font-bold text-slate-500 font-mono">Paid Amount</p>
+                  <p className="text-lg md:text-xl font-extrabold text-emerald-400 mt-1 font-mono">৳ {student.amountPaid || 0}</p>
+                  <p className="text-[9px] text-slate-500 mt-1">Verified receipts</p>
+                </div>
+                <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-850">
+                  <p className="text-[9px] uppercase font-bold text-slate-500 font-mono">Total Due (বাকি)</p>
+                  <p className="text-lg md:text-xl font-extrabold text-rose-400 mt-1 font-mono">
+                    ৳ {Math.max(0, (student.totalFees || 0) - (student.amountPaid || 0))}
+                  </p>
+                  <p className="text-[9px] text-slate-500 mt-1">Payable balance</p>
+                </div>
+              </div>
+
+              {/* Verified payments log list */}
+              <div className="space-y-3 pt-2">
+                <p className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">Payment Transaction History ({student.payments?.length || 0})</p>
+                
+                {!student.payments || student.payments.length === 0 ? (
+                  <div className="text-center py-6 text-slate-500 text-xs border border-dashed border-slate-800 rounded-xl bg-slate-950/20">
+                    No billing history found. Use the right-side form to file your first receipt!
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin">
+                    {student.payments.map((pay) => {
+                      const statusStyles = pay.status === 'Approved'
+                        ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20'
+                        : pay.status === 'Pending'
+                          ? 'bg-amber-950/40 text-amber-400 border-amber-500/20 animate-pulse'
+                          : 'bg-rose-950/40 text-rose-400 border-rose-500/20';
+
+                      return (
+                        <div key={pay.id} className="bg-slate-950 p-3 rounded-xl border border-slate-850 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-200">{pay.courseTitle.substring(0, 32)}...</span>
+                              <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 px-1.5 py-0.2 rounded text-slate-400 uppercase font-bold">{pay.paymentMethod}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 font-mono mt-1">TrxID: <strong className="text-slate-400">{pay.txId}</strong> • Date: {pay.date}</p>
+                          </div>
+                          <div className="flex items-center justify-between md:justify-end gap-3">
+                            <span className="font-mono font-black text-slate-300">৳ {pay.amount}</span>
+                            <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-mono font-bold border ${statusStyles}`}>
+                              {pay.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Pay tuition fees form */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 md:p-6 shadow-xl flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <h4 className="text-xs font-mono font-bold uppercase text-slate-300 flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4 text-cyan-400" /> Submit payment receipt
+                </h4>
+                <span className="text-[9px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded-md">bKash Personal</span>
+              </div>
+
+              {paySuccess && (
+                <div className="bg-emerald-950/40 border border-emerald-500/20 text-emerald-400 text-[11px] p-3 rounded-xl mb-4 leading-relaxed">
+                  📢 <strong>Receipt filed successfully!</strong> Ashik Vai will verify your Transaction ID and approve the class access within minutes.
+                </div>
+              )}
+
+              <form onSubmit={handlePostPayment} className="space-y-3.5 text-xs">
+                {/* Module selection */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400">Target Study Module</label>
+                  <select
+                    value={payCourseId}
+                    onChange={(e) => setPayCourseId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-300 px-3 py-2 rounded-xl text-xs focus:border-cyan-500 focus:outline-none cursor-pointer"
+                  >
+                    {courses.map(course => (
+                      <option key={course.id} value={course.id}>
+                        {course.title.length > 28 ? course.title.substring(0, 28) + '...' : course.title} ({course.price})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Gateway & Amount sent */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400">Gateway</label>
+                    <select
+                      value={payMethod}
+                      onChange={(e) => setPayMethod(e.target.value as any)}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-300 px-3 py-2 rounded-xl text-xs focus:border-cyan-500 focus:outline-none cursor-pointer"
+                    >
+                      <option value="bKash">bKash (বিকাশ)</option>
+                      <option value="Nagad">Nagad (নগদ)</option>
+                      <option value="Rocket">Rocket (রকেট)</option>
+                      <option value="Bank">Bank</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400">Amount Sent (৳)</label>
+                    <input 
+                      type="number" 
+                      required
+                      min={100}
+                      value={payAmount}
+                      onChange={(e) => setPayAmount(parseInt(e.target.value) || 0)}
+                      className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl text-xs focus:border-cyan-500 focus:outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                {/* Transaction ID */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400">Transaction ID (TrxID)</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="e.g. BKX928410293"
+                    value={payTxId}
+                    onChange={(e) => setPayTxId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-100 px-3 py-2 rounded-xl text-xs focus:border-cyan-500 focus:outline-none transition font-mono uppercase"
+                  />
+                </div>
+
+                {/* Instructions */}
+                <p className="text-[10px] text-slate-500 leading-snug bg-slate-950/40 p-2.5 rounded-xl border border-slate-850">
+                  ⚠️ Send Money to: <strong className="text-cyan-400 font-mono">01712-345678</strong>. Mention your student ID in the reference.
+                </p>
+
+                <button
+                  type="submit"
+                  disabled={!payTxId.trim()}
+                  className={`w-full py-2.5 text-slate-950 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    payTxId.trim()
+                      ? 'bg-cyan-400 hover:bg-cyan-300 shadow-md shadow-cyan-500/10'
+                      : 'bg-slate-850 text-slate-600 border border-slate-900 cursor-not-allowed'
+                  }`}
+                >
+                  <Send className="w-3.5 h-3.5" /> Submit Invoice Ticket
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* My Performance section */}

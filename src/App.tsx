@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Course, Quiz, LeaderboardEntry, Notice, QuizSubmission, Lecture } from './types';
+import { User, Course, Quiz, LeaderboardEntry, Notice, QuizSubmission, Lecture, PaymentRecord } from './types';
 import { 
   INITIAL_COURSES, 
   INITIAL_QUIZZES, 
@@ -14,6 +14,7 @@ import NoticeBoard from './components/NoticeBoard';
 import LeaderboardView from './components/LeaderboardView';
 import StudentDashboard from './components/StudentDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import RegisterForm from './components/RegisterForm';
 
 // Icons
 import { 
@@ -38,21 +39,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// Demo Logged-In Users
-const MOCK_STUDENT_USER: User = {
-  id: 'st3', // matches Fahim Faisal / Samiur in data.ts
-  name: 'Samiur Rahman',
-  email: 'samiur.ndc@gmail.com',
-  role: 'student',
-  batch: 'Admission Varsity Intensive 2026',
-  institution: 'Notre Dame College (NDC)',
-  phone: '01712-345678',
-  avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=120&q=80',
-  points: 1040,
-  enrolledCourses: ['phy-1st-hsc', 'phy-admission'],
-  quizScores: {}
-};
-
+// Demo Logged-In Admin User
 const MOCK_ADMIN_USER: User = {
   id: 'admin-ashik',
   name: 'Ashik Vai',
@@ -70,6 +57,93 @@ export default function App() {
   const [notices, setNotices] = useState<Notice[]>(INITIAL_NOTICES);
   const [courses, setCourses] = useState<Course[]>(INITIAL_COURSES);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(INITIAL_LEADERBOARD);
+  
+  // Registration and Dynamic student directory database state
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [students, setStudents] = useState<User[]>([
+    {
+      id: 'st3',
+      name: 'Samiur Rahman',
+      email: 'samiur.ndc@gmail.com',
+      role: 'student',
+      batch: 'Admission Varsity Intensive 2026',
+      institution: 'Notre Dame College (NDC)',
+      phone: '01712-345678',
+      avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=120&q=80',
+      points: 1040,
+      enrolledCourses: ['phy-1st-hsc', 'phy-admission'],
+      quizScores: {},
+      totalFees: 7500,
+      amountPaid: 4500,
+      payments: [
+        {
+          id: 'pay-1',
+          studentId: 'st3',
+          studentName: 'Samiur Rahman',
+          courseId: 'phy-1st-hsc',
+          courseTitle: 'HSC Physics 1st Paper Premium Elite',
+          amount: 3000,
+          date: 'Jun 15, 2026',
+          paymentMethod: 'bKash',
+          txId: 'BKX83726419',
+          status: 'Approved'
+        },
+        {
+          id: 'pay-2',
+          studentId: 'st3',
+          studentName: 'Samiur Rahman',
+          courseId: 'phy-admission',
+          courseTitle: 'BUET & Varsity Admission Physics Intensive Care',
+          amount: 1500,
+          date: 'Jun 25, 2026',
+          paymentMethod: 'Nagad',
+          txId: 'NGD90481729',
+          status: 'Approved'
+        },
+        {
+          id: 'pay-3',
+          studentId: 'st3',
+          studentName: 'Samiur Rahman',
+          courseId: 'phy-admission',
+          courseTitle: 'BUET & Varsity Admission Physics Intensive Care',
+          amount: 3000,
+          date: 'Jun 29, 2026',
+          paymentMethod: 'bKash',
+          txId: 'BKX99923812',
+          status: 'Pending'
+        }
+      ]
+    },
+    {
+      id: 'st4',
+      name: 'Fahim Faisal',
+      email: 'fahim@gmail.com',
+      role: 'student',
+      batch: 'HSC Batch 2026',
+      institution: 'Dhaka College',
+      phone: '01923-456789',
+      avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=120&q=80',
+      points: 820,
+      enrolledCourses: ['phy-2nd-hsc'],
+      quizScores: {},
+      totalFees: 3000,
+      amountPaid: 3000,
+      payments: [
+        {
+          id: 'pay-4',
+          studentId: 'st4',
+          studentName: 'Fahim Faisal',
+          courseId: 'phy-2nd-hsc',
+          courseTitle: 'HSC Physics 2nd Paper Premium Pro',
+          amount: 3000,
+          date: 'Jun 10, 2026',
+          paymentMethod: 'bKash',
+          txId: 'BKX22345678',
+          status: 'Approved'
+        }
+      ]
+    }
+  ]);
   
   // Quiz submissions made during the active session
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([
@@ -141,7 +215,7 @@ export default function App() {
 
   // Handle Logins
   const loginAsStudent = () => {
-    setCurrentUser(MOCK_STUDENT_USER);
+    setCurrentUser(students[0] || null);
     setActiveTab('dashboard');
   };
 
@@ -155,6 +229,251 @@ export default function App() {
     setSelectedCourse(null);
     setActiveLecture(null);
     setActiveQuiz(null);
+  };
+
+  // Account registration
+  const handleRegister = (
+    newUser: User, 
+    initialPaymentTxId?: string, 
+    paidAmount?: number, 
+    paymentMethod?: 'bKash' | 'Nagad' | 'Rocket' | 'Bank'
+  ) => {
+    const studentWithPayment = { ...newUser };
+    
+    if (initialPaymentTxId && paidAmount) {
+      const selectedCourseId = newUser.enrolledCourses[0] || 'phy-1st-hsc';
+      const selectedCourseName = courses.find(c => c.id === selectedCourseId)?.title || "Physics Study Pack";
+      
+      const newPayment: PaymentRecord = {
+        id: `pay-${Date.now()}`,
+        studentId: newUser.id,
+        studentName: newUser.name,
+        courseId: selectedCourseId,
+        courseTitle: selectedCourseName,
+        amount: paidAmount,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        paymentMethod: paymentMethod || 'bKash',
+        txId: initialPaymentTxId,
+        status: 'Pending'
+      };
+      
+      studentWithPayment.payments = [newPayment];
+      // Do not auto enroll in course yet if paying. Wait for admin approval!
+      studentWithPayment.enrolledCourses = [];
+    }
+
+    setStudents(prev => [studentWithPayment, ...prev]);
+    setCurrentUser(studentWithPayment);
+    setIsRegistering(false);
+    setActiveTab('dashboard');
+
+    // Add entry to Live Leaderboard in memory
+    const newEntry: LeaderboardEntry = {
+      id: newUser.id,
+      name: newUser.name,
+      institution: newUser.institution || 'N/A',
+      batch: newUser.batch || 'HSC 2026',
+      points: newUser.points,
+      rank: leaderboard.length + 1,
+      avatar: newUser.avatar,
+      quizzesTaken: 0
+    };
+    setLeaderboard(prev => [...prev, newEntry]);
+  };
+
+  // Submit Tuition Payment from Student Dashboard
+  const handleSubmitPayment = (
+    courseId: string, 
+    amount: number, 
+    method: 'bKash' | 'Nagad' | 'Rocket' | 'Bank', 
+    txId: string
+  ) => {
+    if (!currentUser) return;
+
+    const targetCourse = courses.find(c => c.id === courseId);
+    const courseTitle = targetCourse ? targetCourse.title : "Physics Module";
+
+    const newPayment: PaymentRecord = {
+      id: `pay-${Date.now()}`,
+      studentId: currentUser.id,
+      studentName: currentUser.name,
+      courseId: courseId,
+      courseTitle: courseTitle,
+      amount: amount,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      paymentMethod: method,
+      txId: txId,
+      status: 'Pending'
+    };
+
+    // Update students database
+    setStudents(prevStudents => {
+      return prevStudents.map(student => {
+        if (student.id !== currentUser.id) return student;
+        const payments = student.payments ? [...student.payments, newPayment] : [newPayment];
+        
+        // Also update total fees expected if enrolling in a new package
+        let newTotalFees = student.totalFees || 0;
+        const alreadyPlanned = student.payments?.some(p => p.courseId === courseId) || student.enrolledCourses.includes(courseId);
+        if (!alreadyPlanned && targetCourse) {
+          const coursePriceNumeric = parseInt(targetCourse.price.replace(/[^0-9]/g, '')) || 3000;
+          newTotalFees += coursePriceNumeric;
+        }
+
+        const updated = {
+          ...student,
+          payments,
+          totalFees: newTotalFees
+        };
+
+        // If current user is same, update current user too
+        setCurrentUser(updated);
+        return updated;
+      });
+    });
+  };
+
+  // Admin approves payment receipt
+  const handleApprovePayment = (studentId: string, paymentId: string) => {
+    setStudents(prevStudents => {
+      return prevStudents.map(student => {
+        if (student.id !== studentId) return student;
+
+        const updatedPayments = (student.payments || []).map(p => {
+          if (p.id !== paymentId) return p;
+          
+          // Enroll the student in the paid course now!
+          if (!student.enrolledCourses.includes(p.courseId)) {
+            student.enrolledCourses = [...student.enrolledCourses, p.courseId];
+          }
+
+          // Credit the amount paid
+          student.amountPaid = (student.amountPaid || 0) + p.amount;
+
+          return { ...p, status: 'Approved' as const };
+        });
+
+        const updatedStudent = {
+          ...student,
+          payments: updatedPayments,
+          amountPaid: updatedPayments.filter(p => p.status === 'Approved').reduce((acc, curr) => acc + curr.amount, 0)
+        };
+
+        // If the student approved is the currently logged-in user, keep them in sync!
+        if (currentUser && currentUser.id === studentId) {
+          setCurrentUser(updatedStudent);
+        }
+
+        return updatedStudent;
+      });
+    });
+  };
+
+  // Admin rejects payment receipt
+  const handleRejectPayment = (studentId: string, paymentId: string) => {
+    setStudents(prevStudents => {
+      return prevStudents.map(student => {
+        if (student.id !== studentId) return student;
+
+        const updatedPayments = (student.payments || []).map(p => {
+          if (p.id !== paymentId) return p;
+          return { ...p, status: 'Rejected' as const };
+        });
+
+        const updatedStudent = {
+          ...student,
+          payments: updatedPayments
+        };
+
+        if (currentUser && currentUser.id === studentId) {
+          setCurrentUser(updatedStudent);
+        }
+
+        return updatedStudent;
+      });
+    });
+  };
+
+  // Admin creates dynamic study package
+  const handleAddCourse = (newCourse: Omit<Course, 'chapters' | 'enrolledCount' | 'rating'>) => {
+    const courseWithChapters: Course = {
+      ...newCourse,
+      enrolledCount: 1,
+      rating: 5.0,
+      chapters: [
+        {
+          id: `ch-${Date.now()}`,
+          title: "Chapter 01: Concept Masterclasses",
+          topics: [
+            {
+              id: `tp-${Date.now()}`,
+              title: "Conceptual Basics & Equations",
+              lectures: [
+                {
+                  id: `lec-${Date.now()}-1`,
+                  title: "Lec 01: Introductory Fundamentals",
+                  videoUrl: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+                  duration: "30:00",
+                  isCompleted: false,
+                  isLocked: false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    setCourses(prev => [...prev, courseWithChapters]);
+  };
+
+  // Admin publishes live class video lecture
+  const handleAddLecture = (
+    courseId: string, 
+    chapterId: string, 
+    topicId: string, 
+    lectureTitle: string, 
+    duration: string, 
+    videoUrl: string
+  ) => {
+    setCourses(prevCourses => {
+      return prevCourses.map(course => {
+        if (course.id !== courseId) return course;
+
+        const updatedChapters = course.chapters.map(chapter => {
+          if (chapter.id !== chapterId) return chapter;
+
+          const updatedTopics = chapter.topics.map(topic => {
+            if (topic.id !== topicId) return topic;
+
+            const newLec: Lecture = {
+              id: `lec-${Date.now()}`,
+              title: lectureTitle,
+              videoUrl: videoUrl,
+              duration: duration,
+              isCompleted: false,
+              isLocked: false
+            };
+
+            return {
+              ...topic,
+              lectures: [...topic.lectures, newLec]
+            };
+          });
+
+          return { ...chapter, topics: updatedTopics };
+        });
+
+        const updatedCourse = { ...course, chapters: updatedChapters };
+        
+        // If the updated course is the one currently opened by the student, refresh it!
+        if (selectedCourse && selectedCourse.id === courseId) {
+          setSelectedCourse(updatedCourse);
+        }
+
+        return updatedCourse;
+      });
+    });
   };
 
   // Student marks a video lecture as completed
@@ -333,81 +652,100 @@ export default function App() {
 
         {/* Dynamic Glassmorphism Auth Card */}
         <div className="flex-1 flex items-center justify-center p-4 z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl relative"
-          >
-            <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-gradient-to-tr from-cyan-500 to-indigo-500 rounded-3xl opacity-20 blur-xl pointer-events-none" />
+          {isRegistering ? (
+            <RegisterForm 
+              courses={courses} 
+              onRegister={handleRegister} 
+              onBack={() => setIsRegistering(false)} 
+            />
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl relative"
+            >
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-gradient-to-tr from-cyan-500 to-indigo-500 rounded-3xl opacity-20 blur-xl pointer-events-none" />
 
-            <div className="text-center space-y-3 mb-8">
-              <span className="text-[10px] uppercase font-mono font-extrabold text-cyan-400 tracking-widest bg-cyan-950/40 border border-cyan-500/25 px-3 py-1 rounded-full">
-                PREMIUM DIGITAL CLASSROOM
-              </span>
-              <h2 className="text-2xl md:text-3xl font-black font-display text-slate-100 tracking-tight leading-none">
-                Interactive Portal
-              </h2>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                Connect with the premier physics platform designed for HSC & Admission aspirants in Bangladesh.
-              </p>
-            </div>
+              <div className="text-center space-y-3 mb-8">
+                <span className="text-[10px] uppercase font-mono font-extrabold text-cyan-400 tracking-widest bg-cyan-950/40 border border-cyan-500/25 px-3 py-1 rounded-full">
+                  PREMIUM DIGITAL CLASSROOM
+                </span>
+                <h2 className="text-2xl md:text-3xl font-black font-display text-slate-100 tracking-tight leading-none">
+                  Interactive Portal
+                </h2>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                  Connect with the premier physics platform designed for HSC & Admission aspirants in Bangladesh.
+                </p>
+              </div>
 
-            {/* Simulated Fast Login Gateways */}
-            <div className="space-y-4">
-              <button 
-                id="btn-login-student"
-                onClick={loginAsStudent}
-                className="w-full p-4 rounded-2xl border border-slate-800 bg-slate-950 hover:bg-slate-900 hover:border-cyan-500/50 text-left transition transform hover:scale-[1.01] active:scale-[0.99] group flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-800 shrink-0">
-                    <img src={MOCK_STUDENT_USER.avatar} alt="Student" className="w-full h-full object-cover" />
+              {/* Simulated Fast Login Gateways */}
+              <div className="space-y-4">
+                <button 
+                  id="btn-login-student"
+                  onClick={loginAsStudent}
+                  className="w-full p-4 rounded-2xl border border-slate-800 bg-slate-950 hover:bg-slate-900 hover:border-cyan-500/50 text-left transition transform hover:scale-[1.01] active:scale-[0.99] group flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-800 shrink-0">
+                      <img src={students[0]?.avatar} alt="Student" className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-mono font-bold uppercase text-cyan-400 tracking-wider">ENTER AS</span>
+                      <h4 className="text-sm font-bold text-slate-200 mt-0.5 group-hover:text-cyan-400 transition">{students[0]?.name} (Student)</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Notre Dame College • Batch 26</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[9px] font-mono font-bold uppercase text-cyan-400 tracking-wider">ENTER AS</span>
-                    <h4 className="text-sm font-bold text-slate-200 mt-0.5 group-hover:text-cyan-400 transition">Samiur Rahman (Student)</h4>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Notre Dame College • Batch 26</p>
+                  <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-cyan-400 transition translate-x-0 group-hover:translate-x-1" />
+                </button>
+
+                <button 
+                  id="btn-login-admin"
+                  onClick={loginAsAdmin}
+                  className="w-full p-4 rounded-2xl border border-slate-800 bg-slate-950 hover:bg-slate-900 hover:border-indigo-500/50 text-left transition transform hover:scale-[1.01] active:scale-[0.99] group flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 font-bold">
+                      🎓
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-mono font-bold uppercase text-indigo-400 tracking-wider">ENTER AS</span>
+                      <h4 className="text-sm font-bold text-slate-200 mt-0.5 group-hover:text-indigo-400 transition">Ashik Vai (Admin / Coach)</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5">BUET ME '19 • Principal Faculty</p>
+                    </div>
                   </div>
+                  <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-indigo-400 transition translate-x-0 group-hover:translate-x-1" />
+                </button>
+              </div>
+
+              {/* Dynamic sign-up trigger button */}
+              <div className="pt-5 text-center border-t border-slate-800/40 mt-5">
+                <button
+                  id="btn-show-register"
+                  onClick={() => setIsRegistering(true)}
+                  className="text-xs font-mono font-black text-cyan-400 hover:text-cyan-300 transition flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+                >
+                  ✨ Don't have an account? Sign Up (নতুন অ্যাকাউন্ট খুলুন)
+                </button>
+              </div>
+
+              {/* Quick spec checklist */}
+              <div className="mt-6 border-t border-slate-800/60 pt-4 space-y-2 text-[11px] text-slate-500">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span>Simulated speed-revision video player (0.5x - 2.0x)</span>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-cyan-400 transition translate-x-0 group-hover:translate-x-1" />
-              </button>
-
-              <button 
-                id="btn-login-admin"
-                onClick={loginAsAdmin}
-                className="w-full p-4 rounded-2xl border border-slate-800 bg-slate-950 hover:bg-slate-900 hover:border-indigo-500/50 text-left transition transform hover:scale-[1.01] active:scale-[0.99] group flex items-center justify-between cursor-pointer"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 font-bold">
-                    🎓
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-mono font-bold uppercase text-indigo-400 tracking-wider">ENTER AS</span>
-                    <h4 className="text-sm font-bold text-slate-200 mt-0.5 group-hover:text-indigo-400 transition">Ashik Vai (Admin / Coach)</h4>
-                    <p className="text-[10px] text-slate-500 mt-0.5">BUET ME '19 • Principal Faculty</p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span>HSC & Admission Standard exam simulator with timer</span>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-indigo-400 transition translate-x-0 group-hover:translate-x-1" />
-              </button>
-            </div>
-
-            {/* Quick spec checklist */}
-            <div className="mt-8 border-t border-slate-800/60 pt-5 space-y-2 text-[11px] text-slate-500">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                <span>Simulated speed-revision video player (0.5x - 2.0x)</span>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span>Stateful real-time notice writer and standings board</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                <span>HSC & Admission Standard exam simulator with timer</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                <span>Stateful real-time notice writer and standings board</span>
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
         </div>
 
         {/* Bangladesh Physics center credit footer */}
@@ -503,14 +841,14 @@ export default function App() {
             <button
               id="btn-sidebar-role-swap"
               onClick={() => {
-                setCurrentUser(currentUser.role === 'student' ? MOCK_ADMIN_USER : MOCK_STUDENT_USER);
+                setCurrentUser(currentUser.role === 'student' ? MOCK_ADMIN_USER : (students[0] || null));
                 setActiveTab('dashboard');
                 setSelectedCourse(null);
                 setActiveLecture(null);
               }}
               className="w-full py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-[10px] font-mono font-bold rounded-lg transition text-slate-400 hover:text-cyan-400 cursor-pointer"
             >
-              🔄 Swap to {currentUser.role === 'student' ? 'Ashik Vai (Admin)' : 'Samiur (Student)'}
+              🔄 Swap to {currentUser.role === 'student' ? 'Ashik Vai (Admin)' : `${students[0]?.name || 'Student'} (Student)`}
             </button>
           </div>
 
@@ -545,7 +883,7 @@ export default function App() {
             <button
               id="btn-mobile-role-swap"
               onClick={() => {
-                setCurrentUser(currentUser.role === 'student' ? MOCK_ADMIN_USER : MOCK_STUDENT_USER);
+                setCurrentUser(currentUser.role === 'student' ? MOCK_ADMIN_USER : (students[0] || null));
                 setActiveTab('dashboard');
                 setSelectedCourse(null);
                 setActiveLecture(null);
@@ -643,6 +981,7 @@ export default function App() {
                   submissions={submissions} 
                   onResumeCourse={handleResumeCourse}
                   onNavigateTab={handleNavigateTab}
+                  onSubmitPayment={handleSubmitPayment}
                 />
               ) : (
                 <AdminDashboard 
@@ -650,6 +989,12 @@ export default function App() {
                   onAddNotice={handleAddNotice} 
                   onDeleteNotice={handleDeleteNotice}
                   recentSubmissions={submissions}
+                  students={students}
+                  courses={courses}
+                  onApprovePayment={handleApprovePayment}
+                  onRejectPayment={handleRejectPayment}
+                  onAddCourse={handleAddCourse}
+                  onAddLecture={handleAddLecture}
                 />
               )
             )}

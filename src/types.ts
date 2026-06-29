@@ -1,3 +1,16 @@
+export interface PaymentRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  courseId: string;
+  courseTitle: string;
+  amount: number;
+  date: string;
+  paymentMethod: 'bKash' | 'Nagad' | 'Rocket' | 'Bank';
+  txId: string;
+  status: 'Approved' | 'Pending' | 'Rejected';
+}
+
 export type UserRole = 'student' | 'admin';
 
 export interface User {
@@ -12,6 +25,9 @@ export interface User {
   points: number;
   enrolledCourses: string[]; // Course IDs
   quizScores: { [quizId: string]: number }; // Score percentage or score
+  totalFees?: number; // Total course fees in BDT (Tk)
+  amountPaid?: number; // Total amount paid in BDT (Tk)
+  payments?: PaymentRecord[]; // Payment submission history
 }
 
 export interface Lecture {
